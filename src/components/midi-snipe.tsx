@@ -1607,7 +1607,14 @@ function ConsoleDevice({
       disabled={!connected}
       className={`flex w-full items-center gap-2 border px-3 py-2.5 text-left transition disabled:cursor-not-allowed ${borderClass} border-l-[3px]`}
     >
-      <span className="h-8 w-1 shrink-0 rounded-full" style={{ backgroundColor: sourceColor, boxShadow: `0 0 10px ${sourceColor}` }} />
+      <span
+        className="h-8 w-1 shrink-0 rounded-full"
+        style={{
+          backgroundColor: sourceColor,
+          boxShadow: selected ? `0 0 10px ${sourceColor}` : "none",
+          opacity: selected ? 1 : 0.55,
+        }}
+      />
       <Led color={ledColor} size={8} on={ledOn} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-mono text-xs font-semibold" style={{ color: selected ? "#fff" : "#d4cfc0" }}>
