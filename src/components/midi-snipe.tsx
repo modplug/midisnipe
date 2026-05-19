@@ -159,6 +159,10 @@ const DEVICE_COLORS = [
   "#4ee6c6",
   "#ff7a4d",
   "#b9ff4d",
+  "#ff6b6b",
+  "#4df2ff",
+  "#d88cff",
+  "#f4ff7a",
 ] as const;
 const MESSAGE_FILTERS = [
   { value: "all", label: "All" },
@@ -1018,6 +1022,14 @@ export function MidiSnipe() {
 
   const connectedInputs = inputs.filter((input) => input.state === "connected");
   const selectedConnectedInputs = connectedInputs.filter((input) => selectedInputIds.includes(input.id));
+  const sourceColorById = React.useMemo(() => {
+    const map = new Map<string, string>();
+    inputs.forEach((input, index) => {
+      map.set(input.id, DEVICE_COLORS[index % DEVICE_COLORS.length]);
+    });
+    return map;
+  }, [inputs]);
+  const getSourceColor = React.useCallback((sourceId: string) => sourceColorById.get(sourceId) ?? sourceColor(sourceId), [sourceColorById]);
   const duplicateNames = React.useMemo(() => {
     const counts = new Map<string, number>();
     for (const input of inputs) counts.set(input.name, (counts.get(input.name) ?? 0) + 1);
@@ -1195,7 +1207,7 @@ export function MidiSnipe() {
                     rate={inputRates.get(input.id) ?? 0}
                     recentlyActive={activeInputIds.has(input.id)}
                     holdingNote={activeNoteInputIds.has(input.id)}
-                    sourceColor={sourceColor(input.id)}
+                    sourceColor={getSourceColor(input.id)}
                     onToggle={(checked) => toggleInput(input.id, checked)}
                   />
                 ))
@@ -1345,7 +1357,7 @@ export function MidiSnipe() {
                       <span className="flex min-w-0 items-center gap-1.5 text-[#d4cfc0]">
                         <span
                           className="size-1.5 shrink-0 rounded-full shadow-[0_0_7px_currentColor]"
-                          style={{ color: sourceColor(event.sourceId), backgroundColor: sourceColor(event.sourceId) }}
+                          style={{ color: getSourceColor(event.sourceId), backgroundColor: getSourceColor(event.sourceId) }}
                         />
                         <span className="truncate">{event.sourceName}</span>
                       </span>
@@ -1421,7 +1433,7 @@ export function MidiSnipe() {
               </div>
               <div className="mt-1 font-mono text-[9px] text-[#7a7567]">C2 - C7</div>
             </div>
-            <VirtualPiano from={36} to={96} held={activeNotes} recentHits={recentKeyHits} />
+            <VirtualPiano from={36} to={96} held={activeNotes} recentHits={recentKeyHits} sourceColorFor={getSourceColor} />
             <Divider vertical />
             <div className="flex min-w-[105px] flex-row gap-3 min-[900px]:flex-col min-[900px]:items-end">
               <LedLabel color={AMBER} label="Active" on={activeNotes.length > 0} />
@@ -1583,7 +1595,7 @@ function ConsoleDevice({
   const ledColor = holdingNote || recentlyActive ? AMBER : selected && connected ? SIGNAL_GREEN : connected ? "#5a5547" : RED;
   const ledOn = holdingNote || recentlyActive || (selected && connected);
   const borderClass = selected && connected
-    ? "border-[#7dff5a] border-l-[#7dff5a] bg-[linear-gradient(180deg,#182414_0%,#11180f_100%)]"
+    ? "border-[#343025] border-l-[#343025] bg-[linear-gradient(180deg,#1d1b16_0%,#14120f_100%)]"
     : connected
       ? "border-[#2f2b24] border-l-[#2f2b24] hover:bg-[#1a1815]"
       : "border-[#3a1c18] border-l-[#3a1c18] opacity-60";
@@ -1810,11 +1822,13 @@ function VirtualPiano({
   to,
   held,
   recentHits,
+  sourceColorFor,
 }: {
   from: number;
   to: number;
   held: MidiEvent[];
   recentHits: Record<number, RecentKeyHit>;
+  sourceColorFor: (sourceId: string) => string;
 }) {
   const activeEventByNote = new Map<number, MidiEvent>();
   for (const event of held) {
@@ -1855,7 +1869,7 @@ function VirtualPiano({
       <div className="pointer-events-none absolute inset-0 z-20">
         {activeVisualNotes.map((note) => {
           const active = heldNotes.has(note);
-          const noteSourceColor = sourceColor(activeEventByNote.get(note)?.sourceId ?? "");
+          const noteSourceColor = sourceColorFor(activeEventByNote.get(note)?.sourceId ?? "");
           const geometry = noteGeometry(note);
           const center = geometry.left + geometry.width / 2;
           return (
@@ -1889,7 +1903,7 @@ function VirtualPiano({
         {whiteNotes.map((note) => {
           const active = heldNotes.has(note);
           const hit = recentHits[note];
-          const noteSourceColor = sourceColor(activeEventByNote.get(note)?.sourceId ?? hit?.sourceId ?? "");
+          const noteSourceColor = sourceColorFor(activeEventByNote.get(note)?.sourceId ?? hit?.sourceId ?? "");
           const glow = Math.max(0.45, ((hit?.velocity ?? 96) / 127) * 0.9);
           return (
             <div
@@ -1928,7 +1942,7 @@ function VirtualPiano({
         const leftPercent = ((previousIndex + 0.72) / whiteNotes.length) * 100;
         const active = heldNotes.has(note);
         const hit = recentHits[note];
-        const noteSourceColor = sourceColor(activeEventByNote.get(note)?.sourceId ?? hit?.sourceId ?? "");
+        const noteSourceColor = sourceColorFor(activeEventByNote.get(note)?.sourceId ?? hit?.sourceId ?? "");
         const glow = Math.max(0.45, ((hit?.velocity ?? 96) / 127) * 0.9);
         return (
           <div
