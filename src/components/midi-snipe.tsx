@@ -646,20 +646,6 @@ function eventTypeLabel(kind: MessageKind): string {
   return labels[kind];
 }
 
-function buildScopePath(events: MidiEvent[], offset: number, level: number): string {
-  const source = events.slice(0, 24);
-  const amplitude = Math.max(3, Math.min(34, 4 + level * 0.3));
-  const points = Array.from({ length: 48 }, (_, index) => {
-    const event = source[index % Math.max(source.length, 1)];
-    const value = event?.value ?? event?.velocity ?? 64;
-    const eventBias = source.length > 0 ? ((value / 127) - 0.5) * 10 : 0;
-    const y = 40 + Math.sin((index + offset) / 3) * amplitude + eventBias;
-    const x = (index / 47) * 400;
-    return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${Math.max(6, Math.min(74, y)).toFixed(1)}`;
-  });
-  return points.join(" ");
-}
-
 export function MidiSnipe() {
   const midiAccessRef = React.useRef<MidiAccessLike | null>(null);
   const inputsRef = React.useRef<Map<string, MidiInputLike>>(new Map());
@@ -1051,15 +1037,15 @@ export function MidiSnipe() {
     return Array.from({ length: 16 }, (_, index) => {
       const channel = index + 1;
       const channelEvents = events.filter((event) => event.channel === channel);
-      const cutoff = now - 60_000;
-      const rate = channelEvents.filter((event) => event.timestamp >= cutoff).length;
       const last = channelEvents[0];
+      const level = last?.kind === "note-off" ? 0 : last?.normalized ?? 0;
       return {
         channel,
         count: channelEvents.length,
-        rate,
         last,
-        level: Math.min(100, Math.max(last?.normalized ?? 0, rate * 2)),
+        value: last?.value,
+        level: Math.min(100, Math.max(0, level)),
+        recent: Boolean(last && now - last.timestamp < 2500),
       };
     });
   }, [events, now]);
@@ -1260,20 +1246,22 @@ export function MidiSnipe() {
           </div>
 
           <div className="flex min-h-0 flex-col gap-3">
-            <Panel label="Now Playing" className="flex flex-col gap-4 px-5 py-4 min-[760px]:flex-row min-[760px]:items-center">
-              <div className="min-w-[220px]">
+            <Panel label="Now Playing" className="grid min-h-[118px] grid-cols-1 gap-4 px-5 py-4 min-[760px]:grid-cols-[220px_1px_106px_1px_minmax(260px,1fr)] min-[760px]:items-center">
+              <div className="w-full min-w-0">
                 <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#7a7567]">Held</div>
-                <div className="mt-2 flex min-h-9 flex-wrap gap-2">
+                <div className="mt-2 grid h-9 grid-cols-5 gap-1.5 overflow-hidden">
                   {nowPlayingNotes.length === 0 ? (
-                    <span className="font-mono text-sm uppercase tracking-[.12em] text-[#5a5547]">No notes</span>
+                    <span className="col-span-5 flex items-center font-mono text-sm uppercase tracking-[.12em] text-[#5a5547]">No notes</span>
                   ) : (
-                    nowPlayingNotes.map((event) => (
+                    Array.from({ length: 5 }, (_, index) => nowPlayingNotes[index]).map((event, index) => event ? (
                       <span
                         key={event.id}
-                        className="rounded border border-[#6e3a00] bg-[linear-gradient(180deg,#ffa024_0%,#c46000_100%)] px-3 py-1 font-mono text-base font-bold text-[#1a0f00] shadow-[0_0_12px_rgba(255,160,36,.18),inset_0_1px_0_rgba(255,255,255,.3)]"
+                        className="flex items-center justify-center rounded border border-[#6e3a00] bg-[linear-gradient(180deg,#ffa024_0%,#c46000_100%)] px-2 font-mono text-sm font-bold text-[#1a0f00] shadow-[0_0_12px_rgba(255,160,36,.18),inset_0_1px_0_rgba(255,255,255,.3)]"
                       >
                         {noteName(event.note ?? 60)}
                       </span>
+                    ) : (
+                      <span key={`empty-${index}`} className="rounded border border-[#28241c] bg-[#0a0908]" />
                     ))
                   )}
                 </div>
@@ -1284,7 +1272,7 @@ export function MidiSnipe() {
 
               <Divider vertical />
 
-              <div className="flex gap-2">
+              <div className="flex w-[106px] gap-2">
                 {(nowPlayingNotes.length > 0 ? nowPlayingNotes : [undefined, undefined, undefined]).slice(0, 3).map((event, index) => (
                   <Vu key={event?.id ?? index} value={event?.velocity ?? event?.value ?? 0} label={event?.note ? noteName(event.note) : "--"} />
                 ))}
@@ -1376,7 +1364,7 @@ export function MidiSnipe() {
           </div>
 
           <div className="flex min-h-0 flex-col gap-3">
-            <Panel label="Ch Matrix · 1-16" className="px-4 pb-4 pt-5">
+            <Panel label="Ch Matrix · velocity/value" className="px-4 pb-4 pt-5">
               <div className="grid grid-cols-4 gap-2">
                 {channelActivity.map((channel) => (
                   <ChannelCell key={channel.channel} channel={channel} />
@@ -1717,41 +1705,73 @@ function Scope({
   lastEventAt?: number;
   now: number;
 }) {
+  const latestValueEvent = events.find((event) => event.normalized !== undefined);
   const heldLevel = activeNotes.length > 0
     ? Math.max(...activeNotes.map((event) => event.normalized ?? Math.round(((event.velocity ?? event.value ?? 127) / 127) * 100)))
     : 0;
   const recentLevel = lastEventAt ? Math.max(0, 80 - ((now - lastEventAt) / 1200) * 80) : 0;
-  const level = activeNotes.length > 0 ? Math.max(95, heldLevel) : recentLevel;
+  const level = activeNotes.length > 0 ? heldLevel : latestValueEvent?.kind === "note-off" ? 0 : latestValueEvent?.normalized ?? recentLevel;
+  const recentValues = events.filter((event) => event.normalized !== undefined && event.kind !== "system").slice(0, 28).reverse();
+  const label = activeNotes.length > 0
+    ? "held velocity"
+    : latestValueEvent
+      ? `${eventTypeLabel(latestValueEvent.kind)} value`
+      : "waiting";
 
   return (
-    <div className="relative h-[86px] min-w-[260px] flex-1 overflow-hidden rounded border border-[#2a2620] bg-[#0a0908]">
+    <div className="relative h-[86px] min-w-[260px] flex-1 overflow-hidden rounded border border-[#2a2620] bg-[#0a0908] px-3 py-2">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,160,36,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,160,36,.08)_1px,transparent_1px)] bg-[length:12px_12px]" />
-      <svg viewBox="0 0 400 80" preserveAspectRatio="none" className="absolute inset-0 size-full">
-        <path
-          d={buildScopePath(events, 0, level)}
-          stroke={level > 70 ? AMBER : "#6c5630"}
-          strokeWidth="1.5"
-          fill="none"
-          style={{ filter: level > 20 ? `drop-shadow(0 0 4px ${AMBER})` : "none" }}
-        />
-        <path d={buildScopePath(events, 9, level * 0.8)} stroke={SIGNAL_GREEN} strokeWidth="1" fill="none" opacity={level > 0 ? 0.7 : 0.25} />
-      </svg>
-      <div className="absolute bottom-2 right-2 top-2 w-2 border border-[#2a2620] bg-[#050505]">
-        <div
-          className="absolute bottom-0 left-0 right-0 bg-[linear-gradient(0deg,#7dff5a_0%,#ffa024_72%,#ff5a4a_100%)] shadow-[0_0_8px_rgba(255,160,36,.45)]"
-          style={{ height: `${Math.min(100, level)}%` }}
-        />
-      </div>
-      <div className="absolute left-1.5 top-1 font-mono text-[8px] uppercase tracking-[0.1em] text-[#888278]">OSC · MIDI activity</div>
-      <div className="absolute bottom-1.5 left-1.5 font-mono text-[8px] uppercase tracking-[0.1em] text-[#888278]">
-        {activeNotes.length > 0 ? "held · peak" : level > 0 ? "decay" : "idle"}
+      <div className="relative z-10 flex h-full flex-col justify-between">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="font-mono text-[8px] uppercase tracking-[0.1em] text-[#888278]">Velocity / value monitor</div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-[#a4a094]">{label}</div>
+          </div>
+          <div className="font-mono text-2xl font-bold leading-none text-[#ffa024] tabular-nums">{Math.round(level)}</div>
+        </div>
+        <div className="space-y-2">
+          <div className="relative h-3 overflow-hidden rounded-sm border border-[#2a2620] bg-[#050505]">
+            <div
+              className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,#7dff5a_0%,#ffa024_72%,#ff5a4a_100%)] shadow-[0_0_10px_rgba(255,160,36,.45)]"
+              style={{ width: `${Math.min(100, level)}%` }}
+            />
+          </div>
+          <div className="flex h-6 items-end gap-1">
+            {Array.from({ length: 28 }, (_, index) => {
+              const event = recentValues[index];
+              const value = event?.kind === "note-off" ? 0 : event?.normalized ?? 0;
+              return (
+                <span
+                  key={event?.id ?? index}
+                  className="flex-1 rounded-t-sm bg-[#25221c]"
+                  style={{
+                    height: `${Math.max(2, value * 0.24)}px`,
+                    backgroundColor: event ? (value > 80 ? RED : value > 55 ? AMBER : SIGNAL_GREEN) : "#25221c",
+                    opacity: event ? 0.85 : 0.35,
+                    boxShadow: event && value > 0 ? "0 0 6px rgba(255,160,36,.25)" : "none",
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function ChannelCell({ channel }: { channel: { channel: number; count: number; rate: number; level: number; last?: MidiEvent } }) {
-  const active = Boolean(channel.last && channel.rate > 0);
+function ChannelCell({ channel }: { channel: { channel: number; count: number; level: number; value?: number; recent: boolean; last?: MidiEvent } }) {
+  const active = Boolean(channel.last && channel.recent);
+  const valueLabel = channel.last
+    ? channel.last.kind === "note-on"
+      ? "vel"
+      : channel.last.kind === "note-off"
+        ? "off"
+        : channel.last.kind === "cc"
+          ? `cc${channel.last.controller}`
+          : "val"
+    : "-";
+  const displayValue = channel.last ? channel.last.kind === "pitch-bend" ? channel.level : channel.value ?? channel.level : undefined;
   return (
     <div
       className="flex flex-col gap-1 rounded border p-1.5"
@@ -1769,12 +1789,13 @@ function ChannelCell({ channel }: { channel: { channel: number; count: number; r
       <div className="relative h-1 w-full border border-[#2a2620] bg-[#0a0908]">
         <div
           className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,#7dff5a_0%,#ffa024_80%,#ff5a4a_100%)]"
-          style={{ width: `${active ? channel.level : 0}%` }}
+          style={{ width: `${channel.level}%` }}
         />
       </div>
-      <span className="font-mono text-[8.5px]" style={{ color: active ? "#fff" : "#5a5547" }}>
-        {active ? channel.rate : "-"}
-      </span>
+      <div className="flex items-center justify-between gap-1 font-mono text-[8.5px]" style={{ color: active ? "#fff" : "#5a5547" }}>
+        <span className="uppercase">{valueLabel}</span>
+        <span>{displayValue === undefined ? "-" : Math.round(displayValue)}</span>
+      </div>
     </div>
   );
 }
