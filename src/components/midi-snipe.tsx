@@ -66,6 +66,29 @@ type NavigatorWithMidi = Navigator & {
   }) => Promise<MidiAccessLike>;
 };
 
+type DesktopInfo = {
+  platform: string;
+  arch: string;
+  versions: Record<string, string | undefined>;
+  midiBackend: {
+    id: string;
+    label: string;
+    status: string;
+    notes: string[];
+  };
+};
+
+declare global {
+  interface Window {
+    midisnipeDesktop?: {
+      isDesktop: true;
+      getInfo: () => Promise<DesktopInfo>;
+      listNativeInputs: () => Promise<unknown>;
+      saveLog: (text: string) => Promise<{ canceled: boolean; filePath?: string }>;
+    };
+  }
+}
+
 type MessageKind =
   | "note-on"
   | "note-off"
@@ -150,6 +173,7 @@ const RED = "#ff5a4a";
 const FACE = "#15130f";
 const TEXT = "#e8e4d8";
 const BLACK_NOTES = new Set([1, 3, 6, 8, 10]);
+const RELEASES_URL = "https://github.com/modplug/midisnipe/releases/latest";
 const DEVICE_COLORS = [
   "#7dff5a",
   "#47b5ff",
@@ -687,6 +711,7 @@ export function MidiSnipe() {
     isSecure: false,
     isMidiSupported: false,
   });
+  const [desktopInfo, setDesktopInfo] = React.useState<DesktopInfo | undefined>();
 
   React.useEffect(() => {
     const capabilityTimer = window.setTimeout(() => {
@@ -694,6 +719,7 @@ export function MidiSnipe() {
         isSecure: window.isSecureContext,
         isMidiSupported: Boolean((navigator as unknown as NavigatorWithMidi).requestMIDIAccess),
       });
+      window.midisnipeDesktop?.getInfo().then(setDesktopInfo).catch(() => undefined);
     }, 0);
 
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -1065,7 +1091,7 @@ export function MidiSnipe() {
   const systemReady = midiEnabled && selectedConnectedInputs.length > 0 && Boolean(lastEventAt);
   const lastSource = latestNote?.sourceName ?? selectedConnectedInputs[0]?.name ?? "No source selected";
 
-  const exportLog = React.useCallback(() => {
+  const exportLog = React.useCallback(async () => {
     const exportedEvents = exportEventsRef.current.filter(eventMatchesCurrentLog);
     const text = exportedEvents
       .map((event) => {
@@ -1073,6 +1099,12 @@ export function MidiSnipe() {
         return `${formatClock(event.timestamp)}\t${event.sourceName}\t${event.hex}\t${channel}\t${event.label}`;
       })
       .join("\n");
+
+    if (window.midisnipeDesktop) {
+      const result = await window.midisnipeDesktop.saveLog(text);
+      if (!result.canceled) toast.success("Saved MIDI log");
+      return;
+    }
 
     downloadText(`midisnipe-${new Date().toISOString().replaceAll(":", "-")}.txt`, text);
   }, [eventMatchesCurrentLog]);
@@ -1154,6 +1186,21 @@ export function MidiSnipe() {
             <ConsoleButton onClick={requestMidi} disabled={requesting || supportIssue} primary icon={<Plug />}>
               {requesting ? "Connecting" : midiEnabled ? "Reconnect" : "Connect"}
             </ConsoleButton>
+            {desktopInfo ? (
+              <span className="inline-flex items-center rounded border border-[#383530] bg-[linear-gradient(180deg,#28251f_0%,#1a1815_100%)] px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-[#d4cfc0]">
+                {desktopInfo.midiBackend.label}
+              </span>
+            ) : (
+              <a
+                href={RELEASES_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded border border-[#383530] bg-[linear-gradient(180deg,#28251f_0%,#1a1815_100%)] px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-[#d4cfc0] shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition hover:border-[#6d6252] active:translate-y-px"
+              >
+                <Download className="size-3" />
+                Desktop
+              </a>
+            )}
           </div>
         </Panel>
 
