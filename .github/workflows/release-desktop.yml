@@ -17,9 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - name: macOS
+          - name: macOS Intel
+            os: macos-13
+            script: dist:mac:x64
+            artifact: "release/*"
+          - name: macOS Apple Silicon
             os: macos-latest
-            script: dist:mac
+            script: dist:mac:arm64
             artifact: "release/*"
           - name: Windows
             os: windows-latest
