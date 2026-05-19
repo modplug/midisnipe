@@ -461,7 +461,7 @@ function StatusBadge({ state }: { state: MidiDeviceState | MidiConnectionState }
   );
 }
 
-export function MidiDebugger() {
+export function MidiSnipe() {
   const midiAccessRef = React.useRef<MidiAccessLike | null>(null);
   const inputsRef = React.useRef<Map<string, MidiInputLike>>(new Map());
   const eventCounterRef = React.useRef(0);
@@ -743,7 +743,7 @@ export function MidiDebugger() {
             </div>
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-semibold leading-tight">MIDI Debugger</h1>
+                <h1 className="text-xl font-semibold leading-tight">MIDI Snipe</h1>
                 <Badge variant="outline" className="font-mono">
                   Web MIDI
                 </Badge>

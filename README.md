@@ -1,4 +1,4 @@
-# MIDI Debugger
+# MIDI Snipe
 
 A browser-based MIDI diagnostic console built with Next.js, Tailwind, and shadcn/ui.
 

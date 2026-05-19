@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MIDI Debugger",
+  title: "MIDI Snipe",
   description: "A browser-based Web MIDI diagnostic console.",
 };
 
