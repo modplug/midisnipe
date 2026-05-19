@@ -18,7 +18,7 @@ jobs:
       matrix:
         platform:
           - name: macOS Intel
-            os: macos-13
+            os: macos-15-intel
             script: dist:mac:x64
             artifact: "release/*"
           - name: macOS Apple Silicon
