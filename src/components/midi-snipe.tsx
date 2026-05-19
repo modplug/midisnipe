@@ -1864,7 +1864,7 @@ function VirtualPiano({
                 className="absolute left-1/2 top-0 h-full -translate-x-1/2 rounded-full blur-sm"
                 style={{
                   width: geometry.black ? "140%" : "88%",
-                  background: `linear-gradient(180deg, ${noteSourceColor}88 0%, rgba(255,160,36,.38) 42%, rgba(255,160,36,.08) 72%, transparent 100%)`,
+                  background: `linear-gradient(180deg, ${noteSourceColor}88 0%, ${noteSourceColor}55 42%, ${noteSourceColor}16 72%, transparent 100%)`,
                   opacity: active ? 0.9 : 0.65,
                   animation: active ? "piano-held-pulse 760ms ease-in-out infinite" : "piano-release-bloom 300ms ease-out forwards",
                 }}
@@ -1897,11 +1897,11 @@ function VirtualPiano({
               className="relative flex flex-1 items-end justify-center border-r border-[#8b877d] pb-1 font-mono text-[8px]"
               style={{
                 background: active
-                  ? "linear-gradient(180deg,#ffd48a 0%,#ffa024 100%)"
+                  ? `linear-gradient(180deg,#fff4cf 0%,${noteSourceColor} 100%)`
                   : "linear-gradient(180deg,#f2f0ea 0%,#c7c4b8 100%)",
                 color: active ? "#1a0f00" : "#5b574e",
                 boxShadow: active
-                  ? `0 0 ${24 + glow * 24}px rgba(255,160,36,${0.38 + glow * 0.4}), inset 0 0 ${14 + glow * 14}px rgba(255,235,190,.62), inset 0 -18px 22px rgba(170,82,0,.34)`
+                  ? `0 0 ${24 + glow * 24}px ${noteSourceColor}aa, inset 0 0 ${14 + glow * 14}px rgba(255,255,255,.52), inset 0 -18px 22px rgba(0,0,0,.18)`
                   : "inset 0 -3px 4px rgba(0,0,0,.2)",
                 transition: active ? "none" : "background 50ms linear, box-shadow 160ms ease-out",
               }}
@@ -1909,8 +1909,11 @@ function VirtualPiano({
               {hit && !active ? (
                 <span
                   key={hit.id}
-                  className="pointer-events-none absolute inset-x-0 bottom-[-4px] top-[-8px] bg-[radial-gradient(circle_at_50%_72%,rgba(255,245,220,.95),rgba(255,160,36,.55)_26%,rgba(255,160,36,.18)_54%,transparent_75%)]"
-                  style={{ animation: "piano-release-bloom 260ms ease-out forwards" }}
+                  className="pointer-events-none absolute inset-x-0 bottom-[-4px] top-[-8px]"
+                  style={{
+                    animation: "piano-release-bloom 260ms ease-out forwards",
+                    background: `radial-gradient(circle at 50% 72%, rgba(255,255,255,.92), ${noteSourceColor}99 28%, ${noteSourceColor}33 56%, transparent 76%)`,
+                  }}
                 />
               ) : null}
               {note % 12 === 0 || active ? <span className="relative z-10">{noteName(note)}</span> : ""}
@@ -1934,8 +1937,8 @@ function VirtualPiano({
             style={{
               left: `${leftPercent}%`,
               width: `${62 / whiteNotes.length}%`,
-              background: active ? "linear-gradient(180deg,#ffa024 0%,#c46000 100%)" : "linear-gradient(180deg,#1a1815 0%,#050505 100%)",
-              boxShadow: active ? `0 0 ${22 + glow * 22}px rgba(255,160,36,${0.45 + glow * 0.4}), inset 0 -10px 16px rgba(255,225,150,.35), 0 3px 5px rgba(0,0,0,.65)` : "0 3px 5px rgba(0,0,0,.65)",
+              background: active ? `linear-gradient(180deg,${noteSourceColor} 0%,#050505 100%)` : "linear-gradient(180deg,#1a1815 0%,#050505 100%)",
+              boxShadow: active ? `0 0 ${22 + glow * 22}px ${noteSourceColor}cc, inset 0 -10px 16px rgba(255,255,255,.2), 0 3px 5px rgba(0,0,0,.65)` : "0 3px 5px rgba(0,0,0,.65)",
               color: active ? "#1a0f00" : "transparent",
               transition: active ? "none" : "background 50ms linear, box-shadow 160ms ease-out",
             }}
@@ -1944,8 +1947,11 @@ function VirtualPiano({
             {hit && !active ? (
               <span
                 key={hit.id}
-                className="pointer-events-none absolute inset-x-[-2px] bottom-[-14px] top-[-10px] rounded-b-full bg-[radial-gradient(circle_at_50%_62%,rgba(255,245,220,.95),rgba(255,160,36,.62)_25%,rgba(255,160,36,.2)_55%,transparent_76%)]"
-                style={{ animation: "piano-release-bloom 260ms ease-out forwards" }}
+                className="pointer-events-none absolute inset-x-[-2px] bottom-[-14px] top-[-10px] rounded-b-full"
+                style={{
+                  animation: "piano-release-bloom 260ms ease-out forwards",
+                  background: `radial-gradient(circle at 50% 62%, rgba(255,255,255,.92), ${noteSourceColor}aa 26%, ${noteSourceColor}38 56%, transparent 76%)`,
+                }}
               />
             ) : null}
             {active ? <span className="absolute right-1 top-1 z-10 size-1.5 rounded-full shadow-[0_0_8px_currentColor]" style={{ color: noteSourceColor, backgroundColor: noteSourceColor }} /> : null}
