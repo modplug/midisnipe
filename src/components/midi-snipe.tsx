@@ -612,7 +612,8 @@ export function MidiSnipe() {
   }, [handleMidiMessage, inputs, selectedInputIds]);
 
   const requestMidi = React.useCallback(async () => {
-    const midiRequest = (navigator as unknown as NavigatorWithMidi).requestMIDIAccess;
+    const midiNavigator = navigator as unknown as NavigatorWithMidi;
+    const midiRequest = midiNavigator.requestMIDIAccess;
 
     if (!midiRequest) {
       addDiagnostic({
@@ -625,7 +626,7 @@ export function MidiSnipe() {
 
     setRequesting(true);
     try {
-      const access = (await midiRequest({ sysex: includeSysex })) as MidiAccessLike;
+      const access = (await midiRequest.call(midiNavigator, { sysex: includeSysex })) as MidiAccessLike;
       midiAccessRef.current = access;
       setMidiEnabled(true);
       access.onstatechange = (event) => {
